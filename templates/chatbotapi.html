@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Document Q&A Assistant</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link id="bootstrap-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+
+    <script>
+      const savedTheme = localStorage.getItem("theme") || "light";
+      document.addEventListener("DOMContentLoaded", () => {
+        document.body.classList.add(savedTheme);
+        const toggle = document.querySelector('.theme-toggle');
+        if (toggle) {
+          toggle.textContent = savedTheme === "dark" ? "💡" : "🌙";
+        }
+      });
+    </script>
+
+    <style>
+      body.light { background-color: #f7f9fc; color: #000; }
+      body.dark { background-color: #121212; color: #e0e0e0; }
+
+      .chat-container {
+        max-height: 70vh;
+        overflow-y: auto;
+        padding: 1rem;
+        border-radius: 8px;
+      }
+
+      .chat-bubble {
+        padding: 10px 15px;
+        border-radius: 15px;
+        max-width: 70%;
+        word-wrap: break-word;
+      }
+
+      .light .chat-container {
+        background-color: #ffffff;
+        box-shadow: 0 0 10px rgba(0,0,0,0.05);
+      }
+
+      .dark .chat-container {
+        background-color: #1f1f1f;
+        box-shadow: 0 0 10px rgba(255,255,255,0.05);
+      }
+
+      .bg-chat-user { background-color: #1976d2; color: #fff; }
+      .light .bg-chat-ai {
+        background-color: #f1f1f1; color: #000; border: 1px solid #ccc;
+      }
+      .dark .bg-chat-ai {
+        background-color: #2c2c2c; color: #e0e0e0; border: 1px solid #444;
+      }
+
+      .form-control:focus { box-shadow: none; }
+      .theme-toggle {
+        float: right; cursor: pointer; font-size: 1.2rem;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container py-4">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">🤖 Document Q&A Assistant</h1>
+        <span class="theme-toggle" onclick="toggleTheme()" title="Toggle Light/Dark">🌙</span>
+      </div>
+
+      {% if message %}
+        <div class="alert alert-info">{{ message }}</div>
+      {% endif %}
+
+      {% if not has_key %}
+      <form method="post" class="mb-4">
+        <div class="mb-3">
+          <label class="form-label">Enter your OpenAI API Key</label>
+          <input type="password" class="form-control" name="api_key" placeholder="sk-..." required>
+        </div>
+        <button type="submit" class="btn btn-primary">Submit API Key</button>
+      </form>
+      {% endif %}
+
+      {% if has_key and not doc_uploaded %}
+      <form method="post" enctype="multipart/form-data" class="mb-4">
+        <div class="mb-3">
+          <label class="form-label">Upload a PDF document</label>
+          <input type="file" class="form-control" name="document" required>
+        </div>
+        <button type="submit" class="btn btn-success">Upload</button>
+      </form>
+      {% endif %}
+
+      {% if has_key and doc_uploaded %}
+      <div class="chat-container mb-3">
+        {% for entry in history %}
+        <div class="d-flex justify-content-end mb-2">
+          <div class="chat-bubble bg-chat-user">
+            <strong>You:</strong><br>{{ entry.question }}
+          </div>
+        </div>
+        <div class="d-flex justify-content-start mb-3">
+          <div class="chat-bubble bg-chat-ai">
+            <strong>AI:</strong><br>{{ entry.answer }}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <form method="post" id="chat-form">
+        <div class="input-group">
+          <input type="text" class="form-control" id="question-input" name="question" placeholder="Ask your question..." autofocus>
+          <button type="submit" class="btn btn-primary" onclick="requireInput(true)">Send</button>
+          <button type="submit" name="quit" value="true" class="btn btn-outline-danger ms-2" onclick="requireInput(false)">Quit</button>
+        </div>
+      </form>
+      {% endif %}
+    </div>
+
+    <script>
+      function requireInput(needed) {
+        const input = document.getElementById("question-input");
+        if (input) {
+          if (needed) input.setAttribute("required", "required");
+          else input.removeAttribute("required");
+        }
+      }
+
+      function toggleTheme() {
+        const body = document.body;
+        const toggle = document.querySelector('.theme-toggle');
+        if (body.classList.contains("dark")) {
+          body.classList.remove("dark");
+          body.classList.add("light");
+          localStorage.setItem("theme", "light");
+          toggle.textContent = "🌙";
+        } else {
+          body.classList.remove("light");
+          body.classList.add("dark");
+          localStorage.setItem("theme", "dark");
+          toggle.textContent = "💡";
+        }
+      }
+
+      const chatBox = document.querySelector('.chat-container');
+      if (chatBox) {
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+    </script>
+  </body>
+</html>

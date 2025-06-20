@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pkl
+*.db
+*.log
+*.sqlite3
+venv/
+.env
+.env.*
+doc-qa-env/
