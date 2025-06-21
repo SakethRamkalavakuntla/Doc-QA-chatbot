@@ -44,8 +44,7 @@
 
 ## 🖼️ Demo
 
-🎥 [Click here to watch the demo video](demo/chatbotdemo.mp4)
-
+👉 [Watch the Demo on YouTube](https://youtu.be/rbszh6IDtlY)
 
 ---
 
