@@ -11,58 +11,58 @@ app = Flask(__name__)
 app.secret_key = "supersecret"
 app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()
 
-qa_chain = None
-chat_history = []
-
 @app.route("/", methods=["GET", "POST"])
 def index():
-    global qa_chain, chat_history
     answer = None
     message = None
 
     if request.method == "POST":
-        user_api_key = request.form.get("api_key")
-        if user_api_key:
-            session["api_key"] = user_api_key
-            message = "API key saved. You can now upload a document."
-
         if "quit" in request.form:
-            qa_chain = None
-            chat_history = []
-            session.pop("api_key", None)
-            message = "Session cleared. Please enter your OpenAI API key again."
-            return render_template("chatbotapi.html", answer=None, message=message, history=[], doc_uploaded=False, has_key=False)
+            session.clear()
+            message = "Session cleared. Please enter your API key."
+            return render_template("chatbotapi.html", answer=None, message=message, history=[], has_key=False, doc_uploaded=False)
 
-        if "api_key" not in session:
-            message = "Please enter your OpenAI API key."
-            return render_template("chatbotapi.html", answer=None, message=message, history=[], doc_uploaded=False, has_key=False)
+        # Save API key
+        if "api_key" in request.form:
+            session["api_key"] = request.form.get("api_key")
+            message = "API key saved. Upload a document."
 
-        if qa_chain is None:
-            file = request.files.get("document")
-            if not file:
-                message = "Please upload a document first."
-                return render_template("chatbotapi.html", answer=None, message=message, history=chat_history, doc_uploaded=False, has_key=True)
+        # Handle PDF upload
+        elif "document" in request.files:
+            file = request.files["document"]
+            if file:
+                filename = secure_filename(file.filename)
+                file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+                file.save(file_path)
+                session["file_path"] = file_path
+                message = "Document uploaded. Ask your question."
+                session["chat_history"] = []
 
-            filename = secure_filename(file.filename)
-            file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-            file.save(file_path)
+        # Handle Question
+        elif "question" in request.form:
+            if "api_key" in session and "file_path" in session:
+                chunks = load_and_split_pdf(session["file_path"])
+                embeddings = OpenAIEmbeddings(openai_api_key=session["api_key"])
+                db = FAISS.from_documents(chunks, embeddings)
+                llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0, openai_api_key=session["api_key"])
+                qa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=db.as_retriever())
 
-            chunks = load_and_split_pdf(file_path)
+                question = request.form.get("question")
+                answer = qa_chain.run(question)
 
-            embeddings = OpenAIEmbeddings(openai_api_key=session["api_key"])
-            db = FAISS.from_documents(chunks, embeddings)
-            llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0, openai_api_key=session["api_key"])
-            qa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=db.as_retriever())
+                history = session.get("chat_history", [])
+                history.append({"question": question, "answer": answer})
+                session["chat_history"] = history
 
-            message = "Document uploaded. You can now ask questions."
+            else:
+                message = "Missing API key or document."
 
-        question = request.form.get("question")
-        if question:
-            answer = qa_chain.run(question)
-            chat_history.append({"question": question, "answer": answer})
-
-    return render_template("chatbotapi.html", answer=answer, message=message, history=chat_history,
-                           doc_uploaded=qa_chain is not None, has_key="api_key" in session)
+    return render_template("chatbotapi.html",
+                           answer=answer,
+                           message=message,
+                           history=session.get("chat_history", []),
+                           has_key="api_key" in session,
+                           doc_uploaded="file_path" in session)
 
 if __name__ == "__main__":
     app.run(debug=True)
